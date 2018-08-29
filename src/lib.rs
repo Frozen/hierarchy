@@ -1,53 +1,34 @@
-
-
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::collections::HashMap;
 
 type Parent = usize;
 type Child = usize;
-
-pub struct Index<T> {
-    tree: Rc<RefCell<Tree<T>>>,
-    index: usize
-}
-
-impl<T> Index<T> {
-    fn new(ref_to_inner: Rc<RefCell<Tree<T>>>, index: usize) -> Index<T> {
-        Index {
-            tree: ref_to_inner,
-            index
-        }
-    }
-
-    pub fn add_node(&self, node: T) -> Index<T> {
-        let idx = (*self.tree).borrow_mut().add_node_without_parent(node);
-        Index::new(self.tree.clone(), idx)
-    }
-}
+type Index = usize;
 
 
-struct Tree<T> {
+#[derive(Debug)]
+pub struct Hierarchy<T> {
+    /// contains nodes
     node_list: Vec<T>,
+    /// contains relations parent to child
     tree: HashMap<Parent, Vec<Child>>
 }
 
-impl<T> Tree<T> {
-    fn new() -> Tree<T> {
-        Tree {
+impl<T> Hierarchy<T> {
+    pub fn new() -> Hierarchy<T> {
+        Hierarchy {
             tree: HashMap::new(),
-            node_list: Vec::new(),
+            node_list: Vec::new()
         }
     }
 
-    fn add_node_without_parent(&mut self, node: T) -> usize {
+    pub fn add_root_node(&mut self, node: T) -> Index {
         let ind = self.node_list.len();
         self.node_list.push(node);
         ind
     }
 
-    fn add_node_with_parent(&mut self, parent: Parent, node: T) -> usize {
-        let ind = self.add_node_without_parent(node);
+    pub fn add_sub_node(&mut self, parent: Index, node: T) -> Index {
+        let ind = self.add_root_node(node);
         self.attach_child(parent, ind);
         ind
     }
@@ -56,64 +37,61 @@ impl<T> Tree<T> {
         self.tree.entry(parent).or_insert_with(Vec::new).push(child);
     }
 
-    fn len(&self) -> usize {
+    #[inline]
+    pub fn len(&self) -> usize {
         self.node_list.len()
     }
 
-}
-
-
-pub struct Hierarchy<T> {
-    tree: Rc<RefCell<Tree<T>>>
-}
-
-impl<T> Hierarchy<T> {
-    pub fn new() -> Hierarchy<T> {
-        Hierarchy {
-            tree: Rc::new(RefCell::new(Tree::new()))
-        }
+    /// return `T` by it index
+    pub fn get(&self, i: Index) -> Option<&T> {
+        self.node_list.get(i)
     }
 
-    pub fn add_node(&self, node: T) -> Index<T> {
-        let idx = (*self.tree).borrow_mut().add_node_without_parent(node);
-        Index::new(self.tree.clone(), idx)
+    pub fn iter_child(&self, parent: Index) -> TreeIterator<T> {
+        TreeIterator::new(&self.node_list, &self.tree, parent)
     }
 
-    pub fn len(&self) -> usize {
-        (*self.tree).borrow().len()
-    }
-
-    pub fn get<'a, 'b>(&self, i: &'b Index<T>) -> &'a T {
-        (*self.tree).borrow().node_list.get(i.index).unwrap()
+    pub fn iter(&self) -> impl Iterator<Item=&T>{
+        self.node_list.iter()
     }
 }
 
+impl<T> ::std::ops::Index<usize> for Hierarchy<T> {
+    type Output = T;
 
-struct TreeIterator<'a, T: 'a> {
+    fn index(&self, index: usize) -> &T {
+        &self.node_list[index]
+    }
+}
+
+#[derive(Debug)]
+pub struct TreeIterator<'a, T: 'a> {
     node_list: &'a [T],
     tree: &'a HashMap<Parent, Vec<Child>>,
+    /// root node, we should iterate over it children
     parent: usize,
+    /// nodes indexes that will be iterate over
     nodes_for_iter: Vec<usize>,
+    /// current index of our iterator
     index: usize
 }
 
 impl<'a, T: 'a> TreeIterator<'a, T> {
     fn new(node_list: &'a [T], tree: &'a HashMap<Parent, Vec<Child>>, parent: usize) -> TreeIterator<'a, T> {
-
         TreeIterator {
             node_list,
             tree,
             parent,
-            nodes_for_iter: aaaaa(tree, parent),
+            nodes_for_iter: collect_nodes(tree, parent),
             index: 0,
         }
     }
 }
 
-fn aaaaa(tree: &HashMap<Parent, Vec<Child>>, parent: usize) -> Vec<usize> {
+fn collect_nodes(tree: &HashMap<Parent, Vec<Child>>, parent: usize) -> Vec<usize> {
 
     let mut out: Vec<usize>  = vec![];
-    let mut need_to_visit: Vec<usize> = vec![parent];//tree.get(&parent).unwrap_or_else(Vec::new);
+    let mut need_to_visit: Vec<usize> = vec![parent];
 
     loop {
 
@@ -137,8 +115,40 @@ impl<'a, T> Iterator for TreeIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        let node = self.node_list.get(self.index);
-        self.index+=1;
-        node
+        if let Some(index_to_visit) = self.nodes_for_iter.get(self.index) {
+            self.index+=1;
+            self.node_list.get(*index_to_visit)
+        } else {
+            None
+        }
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::Hierarchy;
+
+    #[test]
+    fn test_hierarchy() {
+
+        let mut a = Hierarchy::new();
+        let root = a.add_root_node(1i32);
+        let sub1 = a.add_sub_node(root, 8);
+        let sub2 = a.add_sub_node(root, 9);
+        let _sub3 = a.add_sub_node(sub1, 11);
+
+        assert_eq!(4, a.len());
+        assert_eq!(Some(&8), a.get(sub1));
+        assert_eq!(Some(&9), a.get(sub2));
+        assert_eq!(9, a[sub2]);
+        assert_eq!(None, a.get(5 ));
+
+        assert_eq!(vec![&1, &8, &9, &11], a.iter().collect::<Vec<&i32>>());
+        assert_eq!(vec![&8, &9, &11], a.iter_child(root).collect::<Vec<&i32>>());
+        assert_eq!(vec![&11], a.iter_child(sub1).collect::<Vec<&i32>>());
+
+    }
+
 }

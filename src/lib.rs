@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 type Parent = usize;
 type Child = usize;
-type Index = usize;
+pub type Index = usize;
 
 
 #[derive(Debug)]

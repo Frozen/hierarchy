@@ -7,10 +7,10 @@
 use std::collections::HashMap;
 
 /// represents type that returns when adding nodes
-pub type Index = usize;
+pub type Token = usize;
 
-type Parent = Index;
-type Child = Index;
+type Parent = Token;
+type Child = Token;
 
 /// structs contains nodes and their relations between child and parent
 #[derive(Debug, Default)]
@@ -20,15 +20,6 @@ pub struct Hierarchy<T> {
     /// contains relations parent to child
     tree: HashMap<Parent, Vec<Child>>,
 }
-
-//impl<T: Default> Default for Hierarchy<T> {
-//    fn default() -> Self {
-//        Hierarchy {
-//            tree: HashMap::new(),
-//            node_list: Vec::new(),
-//        }
-//    }
-//}
 
 impl<T> Hierarchy<T> {
     /// Just creates new structure
@@ -40,14 +31,14 @@ impl<T> Hierarchy<T> {
     }
 
     /// Add node without parent. We can have multiple root nodes
-    pub fn add_root_node(&mut self, node: T) -> Index {
+    pub fn add_root_node(&mut self, node: T) -> Token {
         let ind = self.node_list.len();
         self.node_list.push(node);
         ind
     }
 
     /// Adds node by its parent.
-    pub fn add_sub_node(&mut self, parent: Index, node: T) -> Index {
+    pub fn add_sub_node(&mut self, parent: Token, node: T) -> Token {
         let ind = self.add_root_node(node);
         self.attach_child(parent, ind);
         ind
@@ -64,12 +55,12 @@ impl<T> Hierarchy<T> {
     }
 
     /// return `Option<T>` by it index
-    pub fn get(&self, i: Index) -> Option<&T> {
+    pub fn get(&self, i: Token) -> Option<&T> {
         self.node_list.get(i)
     }
 
     /// iterate over child nodes from given index
-    pub fn iter_child(&self, parent: Index) -> TreeIterator<T> {
+    pub fn iter_child(&self, parent: Token) -> TreeIterator<T> {
         TreeIterator::new(&self.node_list, &self.tree, parent)
     }
 

@@ -19,6 +19,8 @@ pub struct Hierarchy<T> {
     node_list: Vec<T>,
     /// contains relations parent to child
     tree: HashMap<Parent, Vec<Child>>,
+    /// relationship to node parents
+    parents: HashMap<Token, Parent>,
 }
 
 impl<T> Hierarchy<T> {
@@ -26,6 +28,7 @@ impl<T> Hierarchy<T> {
     pub fn new() -> Hierarchy<T> {
         Hierarchy {
             tree: HashMap::default(),
+            parents: HashMap::default(),
             node_list: Vec::default(),
         }
     }
@@ -40,6 +43,7 @@ impl<T> Hierarchy<T> {
     /// Adds node by its parent.
     pub fn add_sub_node(&mut self, parent: Token, node: T) -> Token {
         let ind = self.add_root_node(node);
+        self.parents.insert(ind, parent);
         self.attach_child(parent, ind);
         ind
     }
@@ -72,6 +76,11 @@ impl<T> Hierarchy<T> {
     /// returns `true` if no nodes were added
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// returns parent node index for given node
+    pub fn parent(&self, current: Token) -> Option<Token> {
+        self.parents.get(&current).map(|&e| e)
     }
 }
 
@@ -164,6 +173,7 @@ mod tests {
         assert_eq!(Some(&9), a.get(sub2));
         assert_eq!(9, a[sub2]);
         assert_eq!(None, a.get(5));
+        assert_eq!(Some(root), a.parent(sub2));
 
         assert_eq!(vec![&1, &8, &9, &11], a.iter().collect::<Vec<&i32>>());
         assert_eq!(vec![&8, &9, &11], a.iter_child(root).collect::<Vec<&i32>>());

@@ -82,6 +82,17 @@ impl<T> Hierarchy<T> {
     pub fn parent(&self, current: Token) -> Option<Token> {
         self.parents.get(&current).map(|&e| e)
     }
+
+    /// returns parents nodes from current
+    pub fn parents(&self, current: Token) -> Vec<Token> {
+        let mut start = current;
+        let mut out = vec![];
+        while let Some(x) = self.parent(start) {
+            out.push(x);
+            start = x;
+        }
+        out
+    }
 }
 
 impl<T> ::std::ops::Index<usize> for Hierarchy<T> {
@@ -173,7 +184,7 @@ mod tests {
         assert_eq!(Some(&9), a.get(sub2));
         assert_eq!(9, a[sub2]);
         assert_eq!(None, a.get(5));
-        assert_eq!(Some(root), a.parent(sub2));
+        assert_eq!(vec![sub1, root], a.parents(_sub3));
 
         assert_eq!(vec![&1, &8, &9, &11], a.iter().collect::<Vec<&i32>>());
         assert_eq!(vec![&8, &9, &11], a.iter_child(root).collect::<Vec<&i32>>());
